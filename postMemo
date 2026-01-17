@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Post content to Memos API
+# Usage: ./postMemo <file>       - read from file
+#        pbpaste | ./postMemo    - read from stdin
+#
+# Requires: MEMOS_TOKEN environment variable
+
+set -euo pipefail
+
+MEMOS_URL="https://memos.machfour.com/api/v1/memos"
+
+# Check for token
+if [[ -z "${MEMOS_TOKEN:-}" ]]; then
+    echo "Error: MEMOS_TOKEN not set" >&2
+    exit 1
+fi
+
+# Read content from file argument or stdin
+if [[ $# -ge 1 ]]; then
+    CONTENT=$(cat "$1")
+else
+    CONTENT=$(cat)
+fi
+
+# Escape content for JSON (order matters: backslashes first!)
+CONTENT="${CONTENT//\\/\\\\}"      # \ → \\
+CONTENT="${CONTENT//\"/\\\"}"      # " → \"
+CONTENT="${CONTENT//$'\r'/\\r}"    # CR → \r
+CONTENT="${CONTENT//$'\t'/\\t}"    # tab → \t
+CONTENT="${CONTENT//$'\n'/\\n}"    # newline → \n
+
+# POST to API - use printf to safely handle $ and other special chars
+printf '{"state": "STATE_UNSPECIFIED", "visibility": "PRIVATE", "content": "%s"}' "$CONTENT" | \
+curl "$MEMOS_URL" \
+    --silent \
+    --show-error \
+    --fail \
+    --request POST \
+    --header "Authorization: Bearer $MEMOS_TOKEN" \
+    --header 'Content-Type: application/json' \
+    --data @-
