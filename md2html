@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+//
+// Convert markdown files to HTML with standup.css
+// Usage: ./md2html <file.md>           - convert single file
+//        ./md2html standups/*.md       - convert multiple files
+//        ./md2html                     - convert all standups/*.md
+//
+
+const fs = require('fs');
+const path = require('path');
+const { marked } = require('marked');
+
+const cssFile = path.join(__dirname, 'standup.css');
+const css = fs.readFileSync(cssFile, 'utf8');
+
+const darkTheme = `
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  line-height: 1.6;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+  h1, h2, h3, h4 { color: #fff; }
+  a { color: #6db3f2; }
+  details { background: #2a2a2a; padding: 1rem; border-radius: 4px; }
+  summary { cursor: pointer; }
+}
+@media (prefers-color-scheme: light) {
+  body {
+    background: #fff;
+    color: #333;
+  }
+}
+`;
+
+function convert(mdPath) {
+  const md = fs.readFileSync(mdPath, 'utf8');
+  const html = marked(md);
+  const title = path.basename(mdPath, '.md');
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+${darkTheme}
+${css}
+  </style>
+</head>
+<body>
+  <div class="standup">
+${html}
+  </div>
+</body>
+</html>`;
+
+  const htmlPath = mdPath.replace(/\.md$/, '.html');
+  fs.writeFileSync(htmlPath, fullHtml);
+  console.log(`${mdPath} → ${htmlPath}`);
+}
+
+// Get files from args or default to standups/*.md
+let files = process.argv.slice(2);
+if (files.length === 0) {
+  const standupDir = path.join(__dirname, 'standups');
+  files = fs.readdirSync(standupDir)
+    .filter(f => f.endsWith('.md'))
+    .map(f => path.join(standupDir, f));
+}
+
+files.forEach(convert);
